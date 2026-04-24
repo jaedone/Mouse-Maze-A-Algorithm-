@@ -1,5 +1,11 @@
+import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.Timer;
+import java.awt.Font;
+import java.awt.BorderLayout;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -17,24 +23,117 @@ public class Main {
         Node start = find(nodes, "S");
         Node goal = find(nodes, "G");
 
-        List<Node> path = AStar.findPath(nodes, start, goal);
+        AStarStepper stepper = new AStarStepper(nodes, start, goal);
+        // List<Node> path = AStar.findPath(nodes, start, goal);
 
         MazePanel panel = new MazePanel(nodes);
+        panel.setStepper(stepper);
+
+        JTextArea explanationArea = new JTextArea(15, 65);
+        explanationArea.setEditable(false);
+        explanationArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+
+        JButton nextButton = new JButton("Next Iteration");
+        JButton runButton = new JButton("Run");
+        JButton restartButton = new JButton("Restart");
+        JButton backButton = new JButton("Back");
+
+        Timer timer = new Timer(300, e -> {
+            stepper.nextStep();
+            explanationArea.setText(stepper.explanation);
+            panel.repaint();
+
+            if (stepper.finished) {
+                ((Timer) e.getSource()).stop();
+                runButton.setText("Run");
+                nextButton.setEnabled(false);
+            }
+        });
+
+        nextButton.addActionListener(e -> {
+            stepper.nextStep();
+            explanationArea.setText(stepper.explanation);
+            panel.repaint();
+
+            if (stepper.finished) {
+                nextButton.setEnabled(false);
+            }
+        });
+
+        runButton.addActionListener(e -> {
+            if (timer.isRunning()) {
+                timer.stop();
+                runButton.setText("Run");
+                nextButton.setEnabled(true);
+                backButton.setEnabled(true);
+            } else {
+                timer.start();
+                runButton.setText("Pause");
+                nextButton.setEnabled(false);
+                backButton.setEnabled(false);
+            }
+        });
+
+        restartButton.addActionListener(e -> {
+
+            timer.stop();
+
+            resetNodes(nodes);
+
+            Node startNode = find(nodes, "S");
+            Node goalNode = find(nodes, "G");
+
+            AStarStepper newStepper = new AStarStepper(nodes, startNode, goalNode);
+            panel.setStepper(newStepper);
+
+            stepper.open = newStepper.open;
+            stepper.closed = newStepper.closed;
+            stepper.current = newStepper.current;
+            stepper.finished = newStepper.finished;
+            stepper.finalPath = newStepper.finalPath;
+
+            explanationArea.setText("");
+            panel.repaint();
+
+            nextButton.setEnabled(true);
+            runButton.setEnabled(true);
+            runButton.setText("Run");
+        });
+
+        backButton.addActionListener(e -> {
+            stepper.previousStep();
+            explanationArea.setText(stepper.explanation);
+            panel.repaint();
+        });
 
         JFrame frame = new JFrame("A* Maze");
-        frame.add(panel);
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(backButton);
+        buttonPanel.add(nextButton);
+        buttonPanel.add(runButton);
+        buttonPanel.add(restartButton);
+
+        JPanel rightPanel = new JPanel(new BorderLayout());
+        rightPanel.add(new JScrollPane(explanationArea), BorderLayout.CENTER);
+        rightPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        frame.setLayout(new BorderLayout());
+        frame.add(panel, BorderLayout.CENTER);
+        frame.add(rightPanel, BorderLayout.EAST);
+
         frame.pack();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
         // 🎬 animation
-        new Timer(80, e -> {
-            if (!path.isEmpty()) {
-                panel.path.add(path.remove(0));
-                panel.repaint();
-            }
-        }).start();
+        // new Timer(80, e -> {
+        //     if (!path.isEmpty()) {
+        //         panel.path.add(path.remove(0));
+        //         panel.repaint();
+        //     }
+        // }).start();
     }
 
     public static String[][] loadMaze(String file) throws Exception {
@@ -71,5 +170,16 @@ public class Main {
             }
         }
         return null;
+    }
+
+    public static void resetNodes(Node[][] nodes) {
+        for (Node[] row : nodes) {
+            for (Node n : row) {
+                n.g = 0;
+                n.h = 0;
+                n.f = 0;
+                n.parent = null;
+            }
+        }
     }
 }

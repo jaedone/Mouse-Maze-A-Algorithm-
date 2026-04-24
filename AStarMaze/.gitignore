@@ -6,6 +6,8 @@ bin/
 build/
 out/
 
+greedy.py
+
 # Optional: IDE files
 .vscode/    
 .idea/
